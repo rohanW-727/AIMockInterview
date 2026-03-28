@@ -94,17 +94,29 @@ EXPERIENCE never reads INTRO raw content
 
 # Demo UI features (React)
 Core panels:
+
 Stage badge (INTRO / EXPERIENCE / DONE)
+
 Transcript viewer (what user sees; can be non-persisted)
+
 Timers
+
 elapsed stage time
+
 idle time
+
 “next fallback” (time remaining until stage_timeout)
+
 Diagnostics
+
 turn count (e.g., 2/3)
+
 last transition reason (criteria_met | timeout | turn_limit | idle_timeout)
+
 agent speaking status (true/false)
+
 Controls:
 Start / Stop session
+
 Optional debug toggle (force transition button hidden behind toggle)
 
