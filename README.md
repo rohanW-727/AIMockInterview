@@ -24,16 +24,27 @@
 INTRO → EXPERIENCE → DONE
 What runs where:
 LiveKit: handles user interaction (voice/text), streaming responses, session events.
+
 LangGraph: enforces deterministic stage transitions + “no conflict” rules.
+
 Transition rules (hard-coded in logic, not prompt-only)
+
 Each stage transitions when any of the following is true and the agent is not currently speaking/streaming:
+
 Completion criteria met (e.g., intro collected)
+
 Turn limit reached (turn_count >= max_turns)
+
 Time-based fallback (elapsed_stage_time >= stage_timeout)
+
 Idle fallback (time_since_last_user_activity >= idle_timeout) → nudge first; if still idle and stage timeout reached, transition.
+
 Anti-conflict guarantees
+
 Only one stage active at a time.
+
 Block transitions while is_agent_speaking == true (prevents interruptions/overlap).
+
 Debounce transitions so they can only fire once per stage.
 
 
@@ -65,6 +76,7 @@ Only a sanitized handoff summary is passed from INTRO → EXPERIENCE
 # Sanitization/anonymity rules (applies before persisting anything)
 Data minimization
 Default: do not persist raw transcripts
+
 Persist only:
 allowlisted fields (e.g., role, top skills, general background)
 sanitized summaries
@@ -73,6 +85,7 @@ PII redaction (best-effort)
 Emails → [REDACTED_EMAIL]
 Phone numbers → [REDACTED_PHONE]
 Addresses/IDs → [REDACTED]
+
 Optionally: keep only first name or redact names entirely
 Stage handoff
 INTRO produces handoff_summary_safe
