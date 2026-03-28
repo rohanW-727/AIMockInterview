@@ -2,16 +2,18 @@
 
 # Tech stack
 # Backend:
-LiveKit Agents (core “agent runtime” + real-time interaction layer)
-LangGraph (complementary workflow/state machine for deterministic stage control)
-FastAPI (Python) or Node/Express (API + optional WS for UI updates)
-If you use WebSocket in the frontend, hardcode: ws://127.0.0.1:8000/ws
+1. LiveKit Agents (core “agent runtime” + real-time interaction layer)
+
+2. LangGraph (complementary workflow/state machine for deterministic stage control)
+
+3. FastAPI (Python) or Node/Express (API + optional WS for UI updates)
+
+4. If you use WebSocket in the frontend, hardcode: ws://127.0.0.1:8000/ws
 # Frontend
-React.js + CSS (simple dashboard UI to make stage logic + fallbacks visible)
-Optional: lightweight auth gate (dummy username/password)
-Storage (for “persistent memory”)
-In-memory for the demo (fastest/lowest risk), keyed by session_id
-Optional upgrade: Postgres keyed by session_id + stage (Pinecone not needed unless you’re doing semantic search/RAG)
+1. React.js + CSS (simple dashboard UI to make stage logic + fallbacks visible)
+2. Optional: lightweight auth gate (dummy username/password)
+3. Storage (for “persistent memory”)
+4. Optional upgrade: Postgres keyed by session_id + stage (Pinecone not needed unless you’re doing semantic search/RAG)
 
 
 
