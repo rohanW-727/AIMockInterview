@@ -1,122 +1,125 @@
-# AI Mock Interview Project Documentation
+# AI Mock Interview
 
-# Tech stack
-# Backend:
-1. LiveKit Agents (core “agent runtime” + real-time interaction layer)
+A real-time mock interview application that combines conversational AI with structured interview stages, session-isolated memory, and a React dashboard.
 
-2. LangGraph (complementary workflow/state machine for deterministic stage control)
+LiveKit Agents handles voice and text interaction, while LangGraph controls stage progression through explicit application logic. Turn limits, timeouts, and inactivity handling keep the interview moving.
 
-3. FastAPI (Python) or Node/Express (API + optional WS for UI updates)
+## Technology Stack
 
-4. If you use WebSocket in the frontend, hardcode: ws://127.0.0.1:8000/ws
-# Frontend
-1. React.js + CSS (simple dashboard UI to make stage logic + fallbacks visible)
-2. Optional: lightweight auth gate (dummy username/password)
-3. Storage (for “persistent memory”)
-4. Optional upgrade: Postgres keyed by session_id + stage (Pinecone not needed unless you’re doing semantic search/RAG)
+| Component | Technology | Purpose |
+|---|---|---|
+| Agent runtime | LiveKit Agents | Real-time interaction, streaming responses, and session events |
+| Workflow control | LangGraph | Interview state management and deterministic stage transitions |
+| Backend | FastAPI (Python) or Node.js with Express | API endpoints and UI updates |
+| Frontend | React.js and CSS | Interview interface and diagnostic dashboard |
+| Storage — optional upgrade | PostgreSQL | Persistent memory keyed by session and stage |
 
-
-
+Optional features include a lightweight authentication gate and WebSocket-based UI updates.
 
 
-# Brief workflow logic
-# Stages (finite state machine)
-INTRO → EXPERIENCE → DONE
-What runs where:
-LiveKit: handles user interaction (voice/text), streaming responses, session events.
+## Interview Workflow
 
-LangGraph: enforces deterministic stage transitions + “no conflict” rules.
+The interview follows three stages:
 
-Transition rules (hard-coded in logic, not prompt-only)
+**INTRO → EXPERIENCE → DONE**
 
-Each stage transitions when any of the following is true and the agent is not currently speaking/streaming:
+- **INTRO:** Collect the participant’s role, skills, and general background.
+- **EXPERIENCE:** Explore relevant experience using a sanitized introduction summary.
+- **DONE:** End the interview session.
 
-Completion criteria met (e.g., intro collected)
+LiveKit manages the conversation and session events. LangGraph enforces stage transitions and prevents conflicting stage activity.
 
-Turn limit reached (turn_count >= max_turns)
+## Stage Transition Logic
 
-Time-based fallback (elapsed_stage_time >= stage_timeout)
+A stage transitions when one of the following conditions is met and the agent is no longer speaking or streaming:
 
-Idle fallback (time_since_last_user_activity >= idle_timeout) → nudge first; if still idle and stage timeout reached, transition.
+- **Completion:** The stage’s required information has been collected.
+- **Turn limit:** `turn_count >= max_turns`
+- **Timeout:** `elapsed_stage_time >= stage_timeout`
 
-Anti-conflict guarantees
+Inactivity triggers a nudge after the idle threshold. If inactivity continues until the stage timeout, the interview advances.
 
-Only one stage active at a time.
+### Transition Safeguards
 
-Block transitions while is_agent_speaking == true (prevents interruptions/overlap).
+- Only one stage is active at a time.
+- Transitions are blocked while the agent is speaking or streaming.
+- Transition requests are debounced so each stage advances only once.
 
-Debounce transitions so they can only fire once per stage.
+## Edge Case Handling
 
+### Inactive Participants
 
-# Scenarios & Edge Cases:
+The application tracks `last_user_activity_time`. When the idle threshold is exceeded, the agent delivers a supportive nudge. When the stage timeout is reached, the application advances once the agent finishes speaking.
 
-1) User takes too long to complete a turn
-Track last_user_activity_time
-If idle_timeout exceeded: supportive nudge
-If stage_timeout exceeded: force stage transition (time-based fallback)
-2) User goes off-topic
-Detect off-topic (simple heuristic or LLM boolean classifier)
-First time: redirect + restate question
-Repeated off-topic: count strikes; still obey turn/time limits to avoid loops
-If overall stage exceeds time: transition regardless
+### Off-Topic Responses
 
-3) Persistent memory without leakage
-You’ll implement two memory layers, both sandboxed and sanitized:
-Outer memory: Session-level (very basic)
-Keyed by session_id
-Stores only minimal session metadata + sanitized transcript summary (not raw)
-Purpose: prevent cross-session bleed, enable basic observability
-Inner memory: Stage-level (INTRO/EXPERIENCE sandboxes)
-Keyed by (session_id, stage)
-Each stage stores only its own state:
-turn_count, timers, transition reasons, stage-specific summary
-No raw transcript is shared across stages
-Only a sanitized handoff summary is passed from INTRO → EXPERIENCE
+Off-topic detection uses a simple heuristic or an LLM-based boolean classifier.
 
-# Sanitization/anonymity rules (applies before persisting anything)
-Data minimization
-Default: do not persist raw transcripts
+The first off-topic response triggers a redirect and a restatement of the question. Repeated occurrences are tracked, while turn and time limits prevent the conversation from looping indefinitely.
 
-Persist only:
-allowlisted fields (e.g., role, top skills, general background)
-sanitized summaries
-metrics (turns, durations, transition reason)
-PII redaction (best-effort)
-Emails → [REDACTED_EMAIL]
-Phone numbers → [REDACTED_PHONE]
-Addresses/IDs → [REDACTED]
+## Memory Architecture
 
-Optionally: keep only first name or redact names entirely
-Stage handoff
-INTRO produces handoff_summary_safe
-EXPERIENCE receives only handoff_summary_safe + allowlisted fields
-EXPERIENCE never reads INTRO raw content
+Memory is separated into session-level and stage-level state.
 
-# Demo UI features (React)
-Core panels:
+### Session Memory
 
-Stage badge (INTRO / EXPERIENCE / DONE)
+Keyed by `session_id`, session memory stores:
 
-Transcript viewer (what user sees; can be non-persisted)
+- Minimal session metadata
+- Sanitized conversation summaries
+- Metrics for observability
 
-Timers
+Each session’s memory is isolated to prevent information from carrying over into unrelated interviews.
 
-elapsed stage time
+### Stage Memory
 
-idle time
+Keyed by `(session_id, stage)`, each stage maintains its own:
 
-“next fallback” (time remaining until stage_timeout)
+- Turn count
+- Timers
+- Transition reasons
+- Stage-specific summary
 
-Diagnostics
+Raw transcripts are not shared between stages. INTRO produces `handoff_summary_safe`, and EXPERIENCE receives only that sanitized summary and allowlisted fields.
 
-turn count (e.g., 2/3)
+## Data Handling
 
-last transition reason (criteria_met | timeout | turn_limit | idle_timeout)
+Raw transcripts are not persisted by default. Persistence is limited to:
 
-agent speaking status (true/false)
+- Allowlisted information, such as role, top skills, and general background
+- Sanitized summaries
+- Metrics, including turn counts, durations, and transition reasons
 
-Controls:
-Start / Stop session
+Best-effort redaction is applied before information is persisted or passed between stages.
 
-Optional debug toggle (force transition button hidden behind toggle)
+| Information | Replacement |
+|---|---|
+| Email addresses | `[REDACTED_EMAIL]` |
+| Phone numbers | `[REDACTED_PHONE]` |
+| Addresses and identifying numbers | `[REDACTED]` |
 
+Names can optionally be limited to a first name or redacted entirely.
+
+## Dashboard
+
+The React dashboard displays the conversation alongside the state and timing information that controls interview progression.
+
+### Interview Interface
+
+- Current stage badge: INTRO, EXPERIENCE, or DONE
+- Transcript viewer, without requiring transcript persistence
+- Start and stop session controls
+
+### Timers
+
+- Elapsed stage time
+- Time since the participant’s last activity
+- Time remaining before the stage timeout
+
+### Diagnostics
+
+- Current turn count and maximum turns
+- Last transition reason
+- Agent speaking status
+
+An optional debug toggle exposes a manual stage-transition button for testing.
